@@ -1,0 +1,257 @@
+### ============================================================================
+### PROPI BACKEND API - PRUEBAS DE ENDPOINTS (PropiDB v2.1)
+### IF0010 Bases de Datos II (UCR)
+### ============================================================================
+
+@baseUrl = http://localhost:8080/api/v1
+
+### ----------------------------------------------------------------------------
+### 1. AUTENTICACIÓN (LOGIN & LOGOUT)
+### ----------------------------------------------------------------------------
+
+### 1.1 Login con Administrador (rol_admin)
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Client-Terminal: Consola-Admin-Principal
+X-Forwarded-For: 192.168.1.10
+
+{
+  "username": "usr_admin",
+  "password": "AdminPropi2026!"
+}
+
+### Extraer Token y codAcceso Admin
+@tokenAdmin = {{loginAdmin.response.body.token}}
+@codAccesoAdmin = {{loginAdmin.response.body.codAcceso}}
+
+### 1.2 Login con Digitador (rol_digitador)
+# @name loginDigitador
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Client-Terminal: Terminal-Digitador-01
+X-Forwarded-For: 192.168.1.55
+
+{
+  "username": "usr_digitador",
+  "password": "DigiPropi2026!"
+}
+
+### Extraer Token y codAcceso Digitador
+@tokenDigitador = {{loginDigitador.response.body.token}}
+@codAccesoDigitador = {{loginDigitador.response.body.codAcceso}}
+
+### 1.3 Login con Consulta (rol_consulta)
+# @name loginConsulta
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Client-Terminal: Visor-Auditoria-03
+X-Forwarded-For: 192.168.1.99
+
+{
+  "username": "usr_consulta",
+  "password": "ConsPropi2026!"
+}
+
+### Extraer Token Consulta
+@tokenConsulta = {{loginConsulta.response.body.token}}
+
+### 1.4 Logout de Usuario (Actualiza fec_salida vía sp_registrar_salida)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "codAcceso": {{codAccesoDigitador}}
+}
+
+### ----------------------------------------------------------------------------
+### 2. TIPOS DE IMPUESTO (CRUD - Solo rol_admin)
+### ----------------------------------------------------------------------------
+
+### 2.1 Listar tipos de impuesto
+GET {{baseUrl}}/impuestos
+Authorization: Bearer {{tokenAdmin}}
+
+### 2.2 Crear nuevo tipo de impuesto
+POST {{baseUrl}}/impuestos
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+  "codigo": "03",
+  "descripcion": "Tarifa Reducida Especial",
+  "porcentaje": 2.00,
+  "tarifa": "Tarifa Reducida 2%",
+  "estado": "ACTIVO"
+}
+
+### 2.3 Intentar crear impuesto con rol_digitador (Debe retornar 403 Forbidden)
+POST {{baseUrl}}/impuestos
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "codigo": "99",
+  "descripcion": "Intento No Autorizado",
+  "porcentaje": 1.00,
+  "tarifa": "Tarifa 1%",
+  "estado": "ACTIVO"
+}
+
+### ----------------------------------------------------------------------------
+### 3. CLIENTES (REQ 006: CIFRADO / DESCIFRADO COLUMNAR VÍA SP)
+### ----------------------------------------------------------------------------
+
+### 3.1 Crear nuevo cliente (desglose territorial y laboral)
+# @name crearCliente
+POST {{baseUrl}}/clientes
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "nombre": "Carlos Andrés Mendoza Solano",
+  "tipoIdentificacion": "CED_FISICA",
+  "numIdentificacion": "1-1456-0789",
+  "provincia": "San José",
+  "canton": "Montes de Oca",
+  "distrito": "San Pedro",
+  "barrio": "La Granja",
+  "profesionOficio": "Ingeniero de Software",
+  "actividadEconomica": "Desarrollo de Soluciones Tecnológicas",
+  "correo": "carlos.mendoza@ucr.ac.cr",
+  "telefono": "+506 8899-7744",
+  "estado": "ACTIVO"
+}
+
+### 3.2 Listar clientes (datos desencriptados por sp_cliente_listar)
+GET {{baseUrl}}/clientes?soloActivos=true
+Authorization: Bearer {{tokenDigitador}}
+
+### 3.3 Buscar cliente por ID
+GET {{baseUrl}}/clientes/1
+Authorization: Bearer {{tokenDigitador}}
+
+### 3.4 Actualizar cliente existente
+PUT {{baseUrl}}/clientes/1
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "nombre": "Carlos Andrés Mendoza Solano Actualizado",
+  "tipoIdentificacion": "CED_FISICA",
+  "numIdentificacion": "1-1456-0789",
+  "provincia": "San José",
+  "canton": "Montes de Oca",
+  "distrito": "Sabanilla",
+  "barrio": "Málaga",
+  "profesionOficio": "Consultor TI",
+  "actividadEconomica": "Servicios de Consultoría",
+  "correo": "carlos.nuevo@ucr.ac.cr",
+  "telefono": "+506 8899-0011",
+  "estado": "ACTIVO"
+}
+
+### 3.5 Eliminar cliente
+DELETE {{baseUrl}}/clientes/1
+Authorization: Bearer {{tokenAdmin}}
+
+### ----------------------------------------------------------------------------
+### 4. PRODUCTOS / INMUEBLES (CABYS E IMPUESTOS)
+### ----------------------------------------------------------------------------
+
+### 4.1 Listar catálogo de productos
+GET {{baseUrl}}/productos
+Authorization: Bearer {{tokenDigitador}}
+
+### 4.2 Crear nuevo producto / inmueble
+POST {{baseUrl}}/productos
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "codigoCabys": "7211100000400",
+  "descripcion": "Penthouse Vista Panorámica La Sabana",
+  "unidadMedida": "Unidad",
+  "precio": 380000.00,
+  "codImpuesto": 1,
+  "estado": "ACTIVO"
+}
+
+### ----------------------------------------------------------------------------
+### 5. FACTURACIÓN TRANSACCIONAL (Table-Valued Parameter tt_factura_detalle)
+### ----------------------------------------------------------------------------
+
+### 5.1 Crear Factura con cálculo automático de impuestos por SP
+# @name crearFactura
+POST {{baseUrl}}/facturas
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "codCliente": 1,
+  "condicionVenta": "CONTADO",
+  "medioPago": "TRANSFERENCIA",
+  "moneda": "CRC",
+  "tipoCambio": 1.00,
+  "observaciones": "Compra de apartamento en Escazú con IVA incluido",
+  "detalle": [
+    {
+      "codProducto": 1,
+      "cantidad": 1.00
+    }
+  ]
+}
+
+### 5.2 Obtener detalle completo de la factura (Cabecera + Líneas)
+GET {{baseUrl}}/facturas/1
+Authorization: Bearer {{tokenDigitador}}
+
+### 5.3 Listar facturas
+GET {{baseUrl}}/facturas
+Authorization: Bearer {{tokenDigitador}}
+
+### ----------------------------------------------------------------------------
+### 6. NOTAS DE CRÉDITO Y DÉBITO
+### ----------------------------------------------------------------------------
+
+### 6.1 Crear Nota de Crédito asociada a factura
+POST {{baseUrl}}/notas
+Authorization: Bearer {{tokenDigitador}}
+Content-Type: application/json
+
+{
+  "codigo": "NC-2026-0001",
+  "codFactura": 1,
+  "tipo": "CREDITO",
+  "motivo": "Descuento comercial por pronto pago acordado en cierre",
+  "montoAjuste": 5000.00
+}
+
+### 6.2 Listar notas de crédito / débito
+GET {{baseUrl}}/notas
+Authorization: Bearer {{tokenDigitador}}
+
+### ----------------------------------------------------------------------------
+### 7. REPORTES (STORED PROCEDURES - REQ 007)
+### ----------------------------------------------------------------------------
+
+### 7.1 Reporte Resumido de Clientes (rol_admin, rol_consulta)
+GET {{baseUrl}}/reportes/clientes?estado=TODOS
+Authorization: Bearer {{tokenConsulta}}
+
+### 7.2 Reporte de Facturas (rol_admin, rol_consulta)
+GET {{baseUrl}}/reportes/facturas
+Authorization: Bearer {{tokenConsulta}}
+
+### 7.3 Reporte de Pistas de Auditoría Transaccional (rol_admin, rol_consulta)
+GET {{baseUrl}}/reportes/auditoria
+Authorization: Bearer {{tokenConsulta}}
+
+### 7.4 Reporte de Configuración de Seguridad RBAC (Solo rol_admin)
+GET {{baseUrl}}/reportes/seguridad
+Authorization: Bearer {{tokenAdmin}}
+
+### 7.5 Demostración REQ 008 (Deny en SP): Intento de ver seguridad con rol_consulta (403 Forbidden)
+GET {{baseUrl}}/reportes/seguridad
+Authorization: Bearer {{tokenConsulta}}

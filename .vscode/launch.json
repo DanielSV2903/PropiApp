@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-PropiBackendApplication<propi-backend>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "cr.ac.ucr.propi.PropiBackendApplication",
+            "projectName": "propi-backend",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
